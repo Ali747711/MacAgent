@@ -53,7 +53,7 @@ function replier(ctx: Context): Replier {
   return {
     reply: (text) => ctx.reply(text),
     sendConfirmation: (text, id) =>
-      ctx.reply(text, { parse_mode: "Markdown", reply_markup: confirmationKeyboard(id) }),
+      ctx.reply(text, { parse_mode: "HTML", reply_markup: confirmationKeyboard(id) }),
   }
 }
 
