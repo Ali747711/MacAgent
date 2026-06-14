@@ -12,6 +12,11 @@ import { createSystemStatusTool } from "./tools/systemStatus"
 import { createRunShellTool } from "./tools/runShell"
 import { ConfirmationStore, confirmationKeyboard } from "./confirm/store"
 import { handleMessage, handleDecision, type Replier, type OrchestratorDeps } from "./orchestrator"
+import { connectMongo } from "./db/connection"
+import { logAction } from "./db/models/audit"
+import { saveTurn, loadRecentHistory } from "./db/models/conversation"
+import { createOpenAppTool, createQuitAppTool } from "./tools/apps"
+import { createRunShortcutTool } from "./tools/shortcut"
 
 const config = loadConfig()
 
@@ -25,12 +30,17 @@ const SYSTEM_PROMPT = [
 const registry = new ToolRegistry()
   .register(createSystemStatusTool(runCommand))
   .register(createRunShellTool(runCommand))
+  .register(createOpenAppTool(runCommand))
+  .register(createQuitAppTool(runCommand))
+  .register(createRunShortcutTool(runCommand))
 
 const sdk = new Anthropic({ apiKey: config.ANTHROPIC_API_KEY })
 const deps: OrchestratorDeps = {
   client: createClaudeClient(sdk, registry, SYSTEM_PROMPT),
   registry,
   store: new ConfirmationStore(),
+  audit: (e) => logAction({ userMessage: "", ...e }),
+  history: { load: () => loadRecentHistory(10), save: saveTurn },
 }
 
 const bot = new Bot(config.BOT_TOKEN)
@@ -67,5 +77,6 @@ bot.on("message:text", async (ctx) => {
   await handleMessage(ctx.message.text, replier(ctx), deps)
 })
 
+await connectMongo(config.MONGODB_URI)
 bot.start()
 console.error("Bot started (long-polling).")
