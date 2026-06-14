@@ -1,3 +1,4 @@
+import type Anthropic from "@anthropic-ai/sdk"
 import type { ClaudeClient } from "./agent/claude"
 import type { ToolRegistry } from "./agent/tools"
 import { runAgentLoop, continueAfterDecision, type LoopResult, type AuditFn } from "./agent/loop"
@@ -13,6 +14,10 @@ export interface OrchestratorDeps {
   registry: ToolRegistry
   store: ConfirmationStore
   audit?: AuditFn
+  history?: {
+    load: () => Promise<Anthropic.MessageParam[]>
+    save: (role: "user" | "assistant", content: string) => Promise<void>
+  }
 }
 
 async function deliver(result: LoopResult, replier: Replier, deps: OrchestratorDeps): Promise<void> {
@@ -25,7 +30,13 @@ async function deliver(result: LoopResult, replier: Replier, deps: OrchestratorD
 }
 
 export async function handleMessage(text: string, replier: Replier, deps: OrchestratorDeps): Promise<void> {
-  const result = await runAgentLoop([{ role: "user", content: text }], deps.client, deps.registry, deps.audit)
+  const history = deps.history ? await deps.history.load() : []
+  const initial: Anthropic.MessageParam[] = [...history, { role: "user", content: text }]
+  const result = await runAgentLoop(initial, deps.client, deps.registry, deps.audit)
+  if (deps.history && result.type === "done") {
+    await deps.history.save("user", text)
+    await deps.history.save("assistant", result.text)
+  }
   await deliver(result, replier, deps)
 }
 

@@ -35,6 +35,23 @@ describe("handleMessage", () => {
     expect(text).toContain("ls")
     expect(typeof id).toBe("string")
   })
+
+  it("prepends loaded history and saves both turns on done", async () => {
+    const create = vi.fn().mockResolvedValue({ stop_reason: "end_turn", content: [{ type: "text", text: "ok", citations: null }] as never })
+    const client = { create } as unknown as ClaudeClient
+    const save = vi.fn().mockResolvedValue(undefined)
+    const d: OrchestratorDeps = {
+      client, registry, store: new ConfirmationStore(),
+      history: { load: async () => [{ role: "user", content: "earlier" }], save },
+    }
+    const replier = { reply: vi.fn(), sendConfirmation: vi.fn() }
+    await handleMessage("now", replier, d)
+    const sentMessages = create.mock.calls[0][0]
+    expect(sentMessages[0]).toEqual({ role: "user", content: "earlier" })
+    expect(sentMessages[sentMessages.length - 1]).toEqual({ role: "user", content: "now" })
+    expect(save).toHaveBeenCalledWith("user", "now")
+    expect(save).toHaveBeenCalledWith("assistant", "ok")
+  })
 })
 
 describe("handleDecision", () => {
