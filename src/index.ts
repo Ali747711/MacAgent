@@ -39,7 +39,7 @@ const deps: OrchestratorDeps = {
   client: createClaudeClient(sdk, registry, SYSTEM_PROMPT),
   registry,
   store: new ConfirmationStore(),
-  audit: (e) => logAction({ userMessage: "", ...e }),
+  recordAction: (e) => logAction(e),
   history: { load: () => loadRecentHistory(10), save: saveTurn },
 }
 

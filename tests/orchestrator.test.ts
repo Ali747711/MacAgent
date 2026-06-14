@@ -24,6 +24,26 @@ describe("handleMessage", () => {
     expect(replier.sendConfirmation).not.toHaveBeenCalled()
   })
 
+  it("records the action with the originating user message", async () => {
+    const recordAction = vi.fn().mockResolvedValue(undefined)
+    const readOnly: Tool = { name: "system_status", description: "", inputSchema: {}, readOnly: true, run: async () => "82%" }
+    const reg = new ToolRegistry().register(readOnly)
+    const d: OrchestratorDeps = {
+      client: fakeClient([
+        { stop_reason: "tool_use", content: [{ type: "tool_use", id: "t1", name: "system_status", input: { what: "battery" } }] as never },
+        { stop_reason: "end_turn", content: [{ type: "text", text: "82%", citations: null }] as never },
+      ]),
+      registry: reg,
+      store: new ConfirmationStore(),
+      recordAction,
+    }
+    const replier = { reply: vi.fn(), sendConfirmation: vi.fn() }
+    await handleMessage("check battery", replier, d)
+    expect(recordAction).toHaveBeenCalledWith(
+      expect.objectContaining({ userMessage: "check battery", toolName: "system_status" }),
+    )
+  })
+
   it("sends a confirmation prompt when a state-changing tool is requested", async () => {
     const replier = { reply: vi.fn(), sendConfirmation: vi.fn() }
     const d = deps(fakeClient([
@@ -58,7 +78,7 @@ describe("handleDecision", () => {
   it("runs the tool on approve and replies", async () => {
     const replier = { reply: vi.fn(), sendConfirmation: vi.fn() }
     const d = deps(fakeClient([{ stop_reason: "end_turn", content: [{ type: "text", text: "ran it", citations: null }] as never }]))
-    const id = d.store.put({ messages: [{ role: "user", content: "x" }], toolUse: { id: "t", name: "run_shell", input: { command: "ls" } } })
+    const id = d.store.put({ messages: [{ role: "user", content: "x" }], toolUse: { id: "t", name: "run_shell", input: { command: "ls" } }, userMessage: "x" })
     await handleDecision("approve", id, replier, d)
     expect(replier.reply).toHaveBeenCalledWith("ran it")
   })
@@ -78,7 +98,7 @@ describe("handleDecision", () => {
       registry, store: new ConfirmationStore(),
       history: { load: async () => [], save },
     }
-    const id = d.store.put({ messages: [{ role: "user", content: "x" }], toolUse: { id: "t", name: "run_shell", input: { command: "ls" } } })
+    const id = d.store.put({ messages: [{ role: "user", content: "x" }], toolUse: { id: "t", name: "run_shell", input: { command: "ls" } }, userMessage: "x" })
     await handleDecision("approve", id, replier, d)
     expect(save).toHaveBeenCalledWith("assistant", "all done")
   })

@@ -11,7 +11,7 @@ export interface AuditEntry {
 
 const auditSchema = new Schema<AuditEntry>(
   {
-    userMessage: { type: String, required: true },
+    userMessage: { type: String, default: "" },
     toolName: { type: String, required: true },
     input: { type: Schema.Types.Mixed, default: {} },
     confirmed: { type: Boolean, required: true },

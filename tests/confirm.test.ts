@@ -4,7 +4,7 @@ import { ConfirmationStore, describeToolUse } from "../src/confirm/store"
 describe("ConfirmationStore", () => {
   it("stores then returns-and-removes a pending confirmation", () => {
     const store = new ConfirmationStore()
-    const id = store.put({ messages: [], toolUse: { id: "t", name: "run_shell", input: {} } })
+    const id = store.put({ messages: [], toolUse: { id: "t", name: "run_shell", input: {} }, userMessage: "do it" })
     const taken = store.take(id)
     expect(taken?.toolUse.id).toBe("t")
     expect(store.take(id)).toBeUndefined() // consumed

@@ -6,6 +6,7 @@ import type { ToolUseRequest } from "../agent/loop"
 export interface PendingConfirmation {
   messages: Anthropic.MessageParam[]
   toolUse: ToolUseRequest
+  userMessage: string
 }
 
 export class ConfirmationStore {
