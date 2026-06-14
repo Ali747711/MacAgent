@@ -69,4 +69,17 @@ describe("handleDecision", () => {
     await handleDecision("approve", "missing-id", replier, d)
     expect(replier.reply).toHaveBeenCalledWith("This confirmation expired.")
   })
+
+  it("saves the assistant turn to history when a confirmed action finishes", async () => {
+    const replier = { reply: vi.fn(), sendConfirmation: vi.fn() }
+    const save = vi.fn().mockResolvedValue(undefined)
+    const d: OrchestratorDeps = {
+      client: fakeClient([{ stop_reason: "end_turn", content: [{ type: "text", text: "all done", citations: null }] as never }]),
+      registry, store: new ConfirmationStore(),
+      history: { load: async () => [], save },
+    }
+    const id = d.store.put({ messages: [{ role: "user", content: "x" }], toolUse: { id: "t", name: "run_shell", input: { command: "ls" } } })
+    await handleDecision("approve", id, replier, d)
+    expect(save).toHaveBeenCalledWith("assistant", "all done")
+  })
 })

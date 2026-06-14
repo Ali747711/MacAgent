@@ -32,9 +32,9 @@ async function deliver(result: LoopResult, replier: Replier, deps: OrchestratorD
 export async function handleMessage(text: string, replier: Replier, deps: OrchestratorDeps): Promise<void> {
   const history = deps.history ? await deps.history.load() : []
   const initial: Anthropic.MessageParam[] = [...history, { role: "user", content: text }]
+  if (deps.history) await deps.history.save("user", text)
   const result = await runAgentLoop(initial, deps.client, deps.registry, deps.audit)
   if (deps.history && result.type === "done") {
-    await deps.history.save("user", text)
     await deps.history.save("assistant", result.text)
   }
   await deliver(result, replier, deps)
@@ -52,5 +52,8 @@ export async function handleDecision(
     return
   }
   const result = await continueAfterDecision(pending.messages, pending.toolUse, decision, deps.client, deps.registry, deps.audit)
+  if (deps.history && result.type === "done") {
+    await deps.history.save("assistant", result.text)
+  }
   await deliver(result, replier, deps)
 }

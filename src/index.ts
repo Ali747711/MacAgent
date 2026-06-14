@@ -58,23 +58,38 @@ function replier(ctx: Context): Replier {
 }
 
 bot.command("screenshot", async (ctx) => {
-  const path = join(tmpdir(), `shot-${randomUUID()}.png`)
-  const { code, stderr } = await runCommand(`screencapture -x ${path}`)
-  if (code !== 0) {
-    await ctx.reply(`Failed to capture screenshot: ${stderr}`)
-    return
+  try {
+    const path = join(tmpdir(), `shot-${randomUUID()}.png`)
+    const { code, stderr } = await runCommand(`screencapture -x ${path}`)
+    if (code !== 0) {
+      await ctx.reply(`Failed to capture screenshot: ${stderr}`)
+      return
+    }
+    await ctx.replyWithPhoto(new InputFile(path))
+  } catch (error) {
+    console.error("screenshot failed:", error)
+    await ctx.reply("Couldn't take a screenshot.")
   }
-  await ctx.replyWithPhoto(new InputFile(path))
 })
 
 bot.callbackQuery(/^(approve|deny):(.+)$/, async (ctx) => {
   await ctx.answerCallbackQuery()
   const decision = ctx.match[1] === "approve" ? "approve" : "deny"
-  await handleDecision(decision, ctx.match[2], replier(ctx), deps)
+  try {
+    await handleDecision(decision, ctx.match[2], replier(ctx), deps)
+  } catch (error) {
+    console.error("handleDecision failed:", error)
+    await ctx.reply("Something went wrong running that action.")
+  }
 })
 
 bot.on("message:text", async (ctx) => {
-  await handleMessage(ctx.message.text, replier(ctx), deps)
+  try {
+    await handleMessage(ctx.message.text, replier(ctx), deps)
+  } catch (error) {
+    console.error("handleMessage failed:", error)
+    await ctx.reply("Something went wrong handling that. Please try again.")
+  }
 })
 
 await connectMongo(config.MONGODB_URI)

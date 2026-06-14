@@ -1,6 +1,8 @@
 import type { CommandRunner } from "../exec/command"
 import type { Tool } from "../agent/tools"
 
+const VALID_APP_NAME = /^[\w .-]+$/
+
 export function createOpenAppTool(run: CommandRunner): Tool {
   return {
     name: "open_app",
@@ -13,6 +15,7 @@ export function createOpenAppTool(run: CommandRunner): Tool {
     readOnly: false,
     async run(input) {
       const name = String(input.name)
+      if (!VALID_APP_NAME.test(name)) return "Refused: invalid application name."
       const { code, stderr } = await run(`open -a "${name}"`)
       return code === 0 ? `Opened ${name}.` : `Failed to open ${name}: ${stderr.trim()}`
     },
@@ -31,6 +34,7 @@ export function createQuitAppTool(run: CommandRunner): Tool {
     readOnly: false,
     async run(input) {
       const name = String(input.name)
+      if (!VALID_APP_NAME.test(name)) return "Refused: invalid application name."
       const { code, stderr } = await run(`osascript -e 'quit app "${name}"'`)
       return code === 0 ? `Quit ${name}.` : `Failed to quit ${name}: ${stderr.trim()}`
     },

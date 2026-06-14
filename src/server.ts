@@ -9,6 +9,6 @@ app.get("/", (req, res) => {
 });
 
 app.listen(PORT, (data) => {
-  console.log(`Server is running on port ${PORT}`);
-  console.log("Data: ", data);
+  console.error(`Server is running on port ${PORT}`);
+  console.error("Data: ", data);
 });
