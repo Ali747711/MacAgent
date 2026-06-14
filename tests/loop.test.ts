@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest"
+import { describe, it, expect, vi } from "vitest"
 import { runAgentLoop, continueAfterDecision } from "../src/agent/loop"
 import { ToolRegistry, type Tool } from "../src/agent/tools"
 import type { ClaudeClient, ClaudeResponse } from "../src/agent/claude"
@@ -45,6 +45,16 @@ describe("runAgentLoop", () => {
     const result = await runAgentLoop([{ role: "user", content: "list files" }], client, registry)
     expect(result.type).toBe("needs_confirmation")
     if (result.type === "needs_confirmation") expect(result.toolUse.name).toBe("run_shell")
+  })
+
+  it("calls the audit fn when a read-only tool runs", async () => {
+    const audit = vi.fn().mockResolvedValue(undefined)
+    const client = fakeClient([
+      { stop_reason: "tool_use", content: [{ type: "tool_use", id: "t1", name: "system_status", input: { what: "battery" } }] as never },
+      { stop_reason: "end_turn", content: [{ type: "text", text: "done", citations: null }] as never },
+    ])
+    await runAgentLoop([{ role: "user", content: "battery?" }], client, registry, audit)
+    expect(audit).toHaveBeenCalledWith(expect.objectContaining({ toolName: "system_status", confirmed: false }))
   })
 })
 

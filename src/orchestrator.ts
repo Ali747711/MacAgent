@@ -1,6 +1,6 @@
 import type { ClaudeClient } from "./agent/claude"
 import type { ToolRegistry } from "./agent/tools"
-import { runAgentLoop, continueAfterDecision, type LoopResult } from "./agent/loop"
+import { runAgentLoop, continueAfterDecision, type LoopResult, type AuditFn } from "./agent/loop"
 import { ConfirmationStore, describeToolUse } from "./confirm/store"
 
 export interface Replier {
@@ -12,6 +12,7 @@ export interface OrchestratorDeps {
   client: ClaudeClient
   registry: ToolRegistry
   store: ConfirmationStore
+  audit?: AuditFn
 }
 
 async function deliver(result: LoopResult, replier: Replier, deps: OrchestratorDeps): Promise<void> {
@@ -24,7 +25,7 @@ async function deliver(result: LoopResult, replier: Replier, deps: OrchestratorD
 }
 
 export async function handleMessage(text: string, replier: Replier, deps: OrchestratorDeps): Promise<void> {
-  const result = await runAgentLoop([{ role: "user", content: text }], deps.client, deps.registry)
+  const result = await runAgentLoop([{ role: "user", content: text }], deps.client, deps.registry, deps.audit)
   await deliver(result, replier, deps)
 }
 
@@ -39,6 +40,6 @@ export async function handleDecision(
     await replier.reply("This confirmation expired.")
     return
   }
-  const result = await continueAfterDecision(pending.messages, pending.toolUse, decision, deps.client, deps.registry)
+  const result = await continueAfterDecision(pending.messages, pending.toolUse, decision, deps.client, deps.registry, deps.audit)
   await deliver(result, replier, deps)
 }

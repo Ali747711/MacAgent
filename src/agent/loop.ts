@@ -2,6 +2,16 @@ import type Anthropic from "@anthropic-ai/sdk"
 import type { ClaudeClient } from "./claude"
 import type { ToolRegistry } from "./tools"
 
+export type AuditFn = (entry: {
+  toolName: string
+  input: Record<string, unknown>
+  confirmed: boolean
+  result: string
+  isError: boolean
+}) => Promise<void>
+
+const noAudit: AuditFn = async () => {}
+
 export interface ToolUseRequest {
   id: string
   name: string
@@ -35,6 +45,7 @@ export async function runAgentLoop(
   initial: Anthropic.MessageParam[],
   client: ClaudeClient,
   registry: ToolRegistry,
+  audit: AuditFn = noAudit,
 ): Promise<LoopResult> {
   let messages = initial
   // Hard stop to prevent runaway loops if the model keeps calling read-only tools.
@@ -61,7 +72,9 @@ export async function runAgentLoop(
         messages,
       }
     }
-    const result = await tool.run(toolUse.input as Record<string, unknown>)
+    const input = toolUse.input as Record<string, unknown>
+    const result = await tool.run(input)
+    await audit({ toolName: tool.name, input, confirmed: false, result, isError: false })
     messages = [...messages, toolResultMessage(toolUse.id, result)]
   }
   return { type: "done", text: "Stopped after too many steps.", messages }
@@ -73,10 +86,11 @@ export async function continueAfterDecision(
   decision: "approve" | "deny",
   client: ClaudeClient,
   registry: ToolRegistry,
+  audit: AuditFn = noAudit,
 ): Promise<LoopResult> {
   if (decision === "deny") {
     const next = [...messages, toolResultMessage(toolUse.id, "User declined to run this action.", true)]
-    return runAgentLoop(next, client, registry)
+    return runAgentLoop(next, client, registry, audit)
   }
   const tool = registry.get(toolUse.name)
   let content: string
@@ -88,6 +102,7 @@ export async function continueAfterDecision(
     content = `Error: ${(error as Error).message}`
     isError = true
   }
+  await audit({ toolName: toolUse.name, input: toolUse.input, confirmed: true, result: content, isError })
   const next = [...messages, toolResultMessage(toolUse.id, content, isError)]
-  return runAgentLoop(next, client, registry)
+  return runAgentLoop(next, client, registry, audit)
 }
